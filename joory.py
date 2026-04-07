@@ -1,63 +1,74 @@
-import time
+import streamlit as st
 
-class FamilyTaskManager:
-    def __init__(self):
-        self.tasks = []
-        self.child_points = 0
+# --- APP CONFIGURATION ---
+st.set_page_config(page_title="Family Task Tracker", layout="centered")
 
-    def parent_interface(self):
-        print("\n--- Parent (Admin) Control ---")
-        t_name = input("Enter task name: ")
-        t_pts = int(input("Enter point value: "))
-        self.tasks.append({
-            "id": len(self.tasks) + 1,
-            "name": t_name,
-            "points": t_pts,
-            "status": "Pending",
-            "ai_rating": None
-        })
-        print(f"Task '{t_name}' assigned.")
+# --- SIMULATED DATABASE (Using Session State) ---
+if 'tasks' not in st.session_state:
+    st.session_state.tasks = []
 
-    def child_interface(self):
-        print(f"\n--- Child Dashboard (Total Points: {self.child_points}) ---")
-        pending = [t for t in self.tasks if t["status"] == "Pending"]
-        if not pending:
-            print("No tasks assigned yet!")
-            return
+# --- SIDEBAR NAVIGATION ---
+st.sidebar.title("🏠 Family Hub")
+menu = st.sidebar.radio(
+    "Select an Option:",
+    ("View Dashboard", "Parent: Add Task", "Child: Submit Proof", "Parent: Review Submissions")
+)
 
-        for t in pending:
-            print(f"[{t['id']}] {t['name']} - {t['points']} pts")
+# --- 1. DASHBOARD ---
+if menu == "View Dashboard":
+    st.title("📊 Task Dashboard")
+    if not st.session_state.tasks:
+        st.info("No tasks yet! Parent, please add one.")
+    else:
+        for i, task in enumerate(st.session_state.tasks):
+            status_color = "🟢" if task['status'] == "Completed" else "🟡"
+            st.write(f"{status_color} **{task['name']}** - Assigned to: {task['child']}")
+
+# --- 2. PARENT: ADD TASK ---
+elif menu == "Parent: Add Task":
+    st.title("➕ Assign a New Task")
+    with st.form("task_form"):
+        task_name = st.text_input("Task Description (e.g., Clean Room)")
+        child_name = st.text_input("Child's Name")
+        submitted = st.form_submit_button("Add Task")
        
-        choice = int(input("Enter task ID to submit proof: "))
-        for t in self.tasks:
-            if t["id"] == choice:
-                print(f"Simulating camera capture for: {t['name']}...")
-                time.sleep(1)
-                t["status"] = "Submitted"
-                t["ai_rating"] = 8  # Simulated AI evaluation
-                print("Proof submitted! Awaiting parental approval.")
+        if submitted and task_name and child_name:
+            st.session_state.tasks.append({
+                "name": task_name,
+                "child": child_name,
+                "status": "Pending",
+                "proof": None
+            })
+            st.success(f"Task assigned to {child_name}!")
 
-    def approval_workflow(self):
-        print("\n--- Pending Approvals ---")
-        to_approve = [t for t in self.tasks if t["status"] == "Submitted"]
-        if not to_approve:
-            print("No submissions to review.")
-            return
+# --- 3. CHILD: SUBMIT PROOF ---
+elif menu == "Child: Submit Proof":
+    st.title("📤 Submit Your Work")
+    pending_tasks = [t['name'] for t in st.session_state.tasks if t['status'] == "Pending"]
+   
+    if not pending_tasks:
+        st.warning("No pending tasks to complete!")
+    else:
+        task_to_finish = st.selectbox("Which task did you do?", pending_tasks)
+        proof_text = st.text_area("Notes for Parent (e.g., 'Done!')")
+        if st.button("Submit for Review"):
+            for t in st.session_state.tasks:
+                if t['name'] == task_to_finish:
+                    t['status'] = "Reviewing"
+                    t['proof'] = proof_text
+            st.success("Sent! Wait for Parent to approve.")
 
-        for t in to_approve:
-            print(f"[{t['id']}] {t['name']} | AI Suggestion: {t['ai_rating']}/10")
-            ans = input("Approve? (y/n): ")
-            if ans.lower() == 'y':
-                t["status"] = "Completed"
-                self.child_points += t["points"]
-                print(f"Points credited! New Balance: {self.child_points}")
-
-# Run Application Loop
-app = FamilyTaskManager()
-while True:
-    print("\n1. Parent: Add Task\n2. Child: Submit Proof\n3. Parent: Review Submissions\n4. Exit")
-    cmd = input("Select Action: ")
-    if cmd == "1": app.parent_interface()
-    elif cmd == "2": app.child_interface()
-    elif cmd == "3": app.approval_workflow()
-    elif cmd == "4": break
+# --- 4. PARENT: REVIEW SUBMISSIONS ---
+elif menu == "Parent: Review Submissions":
+    st.title("🧐 Review Work")
+    review_list = [t for t in st.session_state.tasks if t['status'] == "Reviewing"]
+   
+    if not review_list:
+        st.info("Nothing to review right now.")
+    else:
+        for t in review_list:
+            st.write(f"**Task:** {t['name']} | **By:** {t['child']}")
+            st.caption(f"Proof notes: {t['proof']}")
+            if st.button(f"Approve {t['name']}"):
+                t['status'] = "Completed"
+                st.rerun()
