@@ -52,12 +52,10 @@ else:
             with st.container(border=True):
                 st.write(f"**Task:** {task['name']} ({task['points']} pts)")
              
- 1. The Camera Widget
-                pho
-   
- #
 
-to = st.camera_input(f"Capture proof for {task['name']}", key=f"cam_{i}")
+   
+
+photo = st.camera_input(f"Capture proof for {task['name']}", key=f"cam_{i}")
                 
                 # 2. The NEW Submit Button (Only shows after photo is taken)
                 if photo:
