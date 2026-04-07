@@ -1,74 +1,77 @@
 import streamlit as st
 
-# --- APP CONFIGURATION ---
-st.set_page_config(page_title="Family Task Tracker", layout="centered")
-
-# --- SIMULATED DATABASE (Using Session State) ---
-if 'tasks' not in st.session_state:
+# --- 1. INITIALIZE DATA ---
+if "tasks" not in st.session_state:
     st.session_state.tasks = []
+if "child_points" not in st.session_state:
+    st.session_state.child_points = 0
 
-# --- SIDEBAR NAVIGATION ---
-st.sidebar.title("🏠 Family Hub")
-menu = st.sidebar.radio(
-    "Select an Option:",
-    ("View Dashboard", "Parent: Add Task", "Child: Submit Proof", "Parent: Review Submissions")
-)
+st.sidebar.title("🏡 Family Task Hub")
+role = st.sidebar.radio("Switch Role:", ["Child (User)", "Parent (Admin)"])
 
-# --- 1. DASHBOARD ---
-if menu == "View Dashboard":
-    st.title("📊 Task Dashboard")
-    if not st.session_state.tasks:
-        st.info("No tasks yet! Parent, please add one.")
+# --- 2. PARENT INTERFACE ---
+if role == "Parent (Admin)":
+    st.header("👨‍👩‍👧‍👦 Parent Dashboard")
+    
+    with st.expander("➕ Assign New Task"):
+        t_name = st.text_input("Task Name")
+        t_pts = st.number_input("Points", min_value=1, value=10)
+        if st.button("Add Task"):
+            # Add new task to the list
+            st.session_state.tasks.append({
+                "name": t_name, "points": t_pts, "status": "Pending", "proof": None
+            })
+            st.success("Task added!")
+            st.rerun()
+
+    st.subheader("📋 Pending Approvals")
+    # Find only tasks that are 'Submitted'
+    pending = [t for t in st.session_state.tasks if t["status"] == "Submitted"]
+    
+    if not pending:
+        st.info("No tasks waiting for approval.")
     else:
         for i, task in enumerate(st.session_state.tasks):
-            status_color = "🟢" if task['status'] == "Completed" else "🟡"
-            st.write(f"{status_color} **{task['name']}** - Assigned to: {task['child']}")
+            if task["status"] == "Submitted":
+                with st.container(border=True):
+                    st.write(f"**Task:** {task['name']}")
+                    st.image(task["proof"], width=300)
+                    if st.button(f"✅ Approve Task {i}", key=f"app_{i}"):
+                        task["status"] = "Completed"
+                        st.session_state.child_points += task["points"]
+                        st.rerun()
 
-# --- 2. PARENT: ADD TASK ---
-elif menu == "Parent: Add Task":
-    st.title("➕ Assign a New Task")
-    with st.form("task_form"):
-        task_name = st.text_input("Task Description (e.g., Clean Room)")
-        child_name = st.text_input("Child's Name")
-        submitted = st.form_submit_button("Add Task")
-       
-        if submitted and task_name and child_name:
-            st.session_state.tasks.append({
-                "name": task_name,
-                "child": child_name,
-                "status": "Pending",
-                "proof": None
-            })
-            st.success(f"Task assigned to {child_name}!")
-
-# --- 3. CHILD: SUBMIT PROOF ---
-elif menu == "Child: Submit Proof":
-    st.title("📤 Submit Your Work")
-    pending_tasks = [t['name'] for t in st.session_state.tasks if t['status'] == "Pending"]
+# --- 3. CHILD INTERFACE ---
+else:
+    st.header("👦 Child Dashboard")
+    st.metric("My Points ⭐", st.session_state.child_points)
+    
+    st.subheader("🚀 My Chores")
+    for i, task in enumerate(st.session_state.tasks):
+        if task["status"] == "Pending":
+            with st.container(border=True):
+                st.write(f"**Task:** {task['name']} ({task['points']} pts)")
+             
+ 1. The Camera Widget
+                pho
    
-    if not pending_tasks:
-        st.warning("No pending tasks to complete!")
-    else:
-        task_to_finish = st.selectbox("Which task did you do?", pending_tasks)
-        proof_text = st.text_area("Notes for Parent (e.g., 'Done!')")
-        if st.button("Submit for Review"):
-            for t in st.session_state.tasks:
-                if t['name'] == task_to_finish:
-                    t['status'] = "Reviewing"
-                    t['proof'] = proof_text
-            st.success("Sent! Wait for Parent to approve.")
+ #
 
-# --- 4. PARENT: REVIEW SUBMISSIONS ---
-elif menu == "Parent: Review Submissions":
-    st.title("🧐 Review Work")
-    review_list = [t for t in st.session_state.tasks if t['status'] == "Reviewing"]
-   
-    if not review_list:
-        st.info("Nothing to review right now.")
-    else:
-        for t in review_list:
-            st.write(f"**Task:** {t['name']} | **By:** {t['child']}")
-            st.caption(f"Proof notes: {t['proof']}")
-            if st.button(f"Approve {t['name']}"):
-                t['status'] = "Completed"
-                st.rerun()
+to = st.camera_input(f"Capture proof for {task['name']}", key=f"cam_{i}")
+                
+                # 2. The NEW Submit Button (Only shows after photo is taken)
+                if photo:
+                    st.success("Photo captured! Now click submit below.")
+                    if st.button(f"📤 Click here to Submit {task['name']}", key=f"sub_{i}"):
+                        # Save the photo to the task list
+                        st.session_state.tasks[i]["proof"] = photo
+                        st.session_state.tasks[i]["status"] = "Submitted"
+                        
+                        st.balloons() # Fun animation for the child!
+                        st.success("Sent to Parent for approval!")
+                        st.rerun() # Refresh to move the task to 'Submitted'
+
+
+
+
+
